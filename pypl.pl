@@ -11,17 +11,17 @@ sub new_line {
 sub all_print {
   my ($line) = @_;
   # print strings
-  if ($line=~ /print\(\".*\"\)/){
+  if ($line=~ /^print\(\".*\"\)/){
     $line=~ s/print\(/print /;
     $line=~ s/\"\)/\\n\";/;
   }
   # print variables
-  elsif ($line=~ /print\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)/){
+  elsif ($line=~ /^print\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)/){
     $line=~ s/print\(/print \"\$/;
     $line=~ s/\)/\\n\";/;
   }
   # print operators among variables
-  elsif ($line=~ /print\(\s*(?:[a-zA-Z_][a-zA-Z0-9_]*)(?:\s*(?:[\+\-\*\/%]|(?:\/\/)|(?:\*\*))\s*(?:[a-zA-Z_][a-zA-Z0-9_]*))+\s*\)/){
+  elsif ($line=~ /^print\(\s*(?:[a-zA-Z_][a-zA-Z0-9_]*)(?:\s*(?:[\+\-\*\/%]|(?:\/\/)|(?:\*\*))\s*(?:[a-zA-Z_][a-zA-Z0-9_]*))+\s*\)/){
     $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
     $line=~ s/\$print\(/print /;
     $line=~ s/\)/, \"\\n\";/;
@@ -51,51 +51,67 @@ sub var_op {
 }
 
 
+sub single_while {
+  my ($line) = @_;
+  # single line while loop
+  if ($line=~ /^while (.+)\:\s(.+)/){
+      $need_print="";
+      $condition=$1;
+      $imple=$2;
+      $condition=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/;
+      $condition="while ($condition) {\n";
+      $need_print="$need_print"."$condition";
+      @imple_list=split(/;/,$imple);
+      foreach $e(@imple_list){
+        $e=~ s/^\s*//;
+        $e = new_line($e);
+        $e = num_op($e);
+        $e = var_op($e);
+        $e = all_print($e);
+        $need_print="$need_print"."\t$e";
+      }
+      $need_print="$need_print"."}\n";
+      return $need_print;
+  }
+  return $line;
+}
+
+sub single_if {
+  my ($line) = @_;
+  # single line if condition
+  if ($line=~ /^if (.+)\:\s(.+)/){
+      $need_print="";
+      $condition=$1;
+      $imple=$2;
+      $condition=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/;
+      $condition="if ($condition) {\n";
+      $need_print="$need_print"."$condition";
+      @imple_list=split(/;/,$imple);
+      foreach $e(@imple_list){
+        $e=~ s/^\s*//;
+        $e = new_line($e);
+        $e = num_op($e);
+        $e = var_op($e);
+        $e = all_print($e);
+        $need_print="$need_print"."\t$e";
+      }
+      $need_print="$need_print"."}\n";
+      return $need_print;
+  }
+  return $line;
+}
+
+
+
 
 while($line=<>){
   # interpreter
   if ($line=~ /^#!\/.*/){
     $line=~ s/.*/#!\/usr\/bin\/perl -w/;
   }
-  # single line while loop
-  if ($line=~ /^while (.+)\:\s(.+)/){
-      $condition=$1;
-      $imple=$2;
-      $condition=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/;
-      $condition="while ($condition) {\n";
-      print "$condition";
-      @imple_list=split(/;/,$imple);
-      foreach $e(@imple_list){
-        $e=~ s/^\s*//;
-        $e = new_line($e);
-        $e = num_op($e);
-        $e = var_op($e);
-        $e = all_print($e);
-        print "\t$e";
-      }
-      print "}\n";
-      next;
-  }
-  # single line if condition
-  if ($line=~ /^if (.+)\:\s(.+)/){
-      $condition=$1;
-      $imple=$2;
-      $condition=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/;
-      $condition="if ($condition) {\n";
-      print "$condition";
-      @imple_list=split(/;/,$imple);
-      foreach $e(@imple_list){
-        $e=~ s/^\s*//;
-        $e = new_line($e);
-        $e = num_op($e);
-        $e = var_op($e);
-        $e = all_print($e);
-        print "\t$e";
-      }
-      print "}\n";
-      next;
-  }
 
+  $line = single_while($line);
+  $line = single_if($line);
   $line = new_line($line);
   $line = num_op($line);
   $line = var_op($line);
