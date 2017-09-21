@@ -26,6 +26,9 @@ sub all_print {
     $line=~ s/\$print\(/print /;
     $line=~ s/\)/, \"\\n\";/;
   }
+  elsif ($line=~ /^print\(\)/){
+    $line="print \"\\n\";\n";
+  }
   return $line;
 }
 
@@ -101,20 +104,101 @@ sub single_if {
   return $line;
 }
 
+sub common_while {
+  my ($line) = @_;
+  if ($line=~ /^while (.+)\:\s*$/) {
+    $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+    $line=~ s/\$while /while \(/;
+    $line=~ s/:/\) {/;
+  }
+  return $line;
+}
+
+sub common_if {
+  my ($line) = @_;
+  if ($line=~ /^if (.+)\:\s*$/) {
+    $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+    $line=~ s/\$if /if \(/;
+    $line=~ s/:/\) {/;
+  }
+  if ($line=~ /^elif (.+)\:\s*$/) {
+    $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+    $line=~ s/\$elif /elsif \(/;
+    $line=~ s/:/\) {/;
+  }
+  if ($line=~ /^else/){
+    $line=~ s/\:/ {/;
+  }
+  return $line;
+}
+
+sub standard_output {
+  my ($line) = @_;
+  if ($line=~ /^sys.stdout.write\((.+)\)/) {
+    $line="print $1;\n";
+  }
+  return $line;
+}
+
+sub standard_readline {
+  my ($line) = @_;
+  if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*int\(sys\.stdin\.readline\(\)\)/){
+      my $variable = $1;
+      $line="\$$variable = <STDIN>;\n";
+  }
+  return $line;
+}
+
+sub change_breaknext {
+  my ($line) = @_;
+  if ($line=~ /^break/){
+    $line=~ s/break/last;/;
+  }
+  if ($line=~ /^continue/){
+    $line=~ s/continue/next;/;
+  }
+  return $line;
+}
 
 
 
+
+$pre_indent='';
 while($line=<>){
   # interpreter
   if ($line=~ /^#!\/.*/){
     $line=~ s/.*/#!\/usr\/bin\/perl -w/;
   }
+  # remove import
+  if ($line=~ /^import/){
+    $line="\n";
+  }
+  if ($line =~ /^\s*(#|$)/){
+    print $line;
+    next;
+  }
+  # different indents
+  $line=~/^(\s*).+/;
+  $curr_indent=$1;
+  $line=~ s/^$curr_indent//;
+  if ($curr_indent!~ /^$pre_indent/){
+      print "$curr_indent"."}\n";
+  }
 
+  $line = common_while($line);
+  $line = common_if($line);
   $line = single_while($line);
   $line = single_if($line);
+  $line = standard_output($line);
+  $line = standard_readline($line);
   $line = new_line($line);
   $line = num_op($line);
   $line = var_op($line);
+  $line = change_breaknext($line);
   $line = all_print($line);
-  print "$line";
+  print "$curr_indent"."$line";
+  $pre_indent=$curr_indent;
+}
+if ($curr_indent ne '') {
+  print "}\n";
 }
