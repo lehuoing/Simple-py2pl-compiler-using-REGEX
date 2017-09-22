@@ -160,10 +160,65 @@ sub change_breaknext {
   return $line;
 }
 
+sub range_loop {
+  my ($line) = @_;
+  # for range loop
+  if ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\(\s*(\d+)\s*,\s*(\d+)\s*\)/){
+      $l_var=$1;
+      $range_lower=$2;
+      $range_upper=$3;
+      $curr_upper=$range_upper-1;
+      $line=~ s/^for/foreach/;
+      $line=~ s/($l_var)/\$$1/;
+      $line=~ s/in\s+range\(.+\)/\($range_lower\.\.$curr_upper\)/;
+      $line=~ s/:/{/;
+  }
+  elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\(\s*(.+)\s*,\s*(.+)\s*\)/){
+      $l_var=$1;
+      $range_lower=$2;
+      $range_upper=$3;
+      $line=~ s/^for/foreach/;
+      $line=~ s/($l_var)/\$$1/;
+      $range_upper="($range_upper - 1)";
+      $range_upper=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+      $line=~ s/in\s+range\(.+\)/\($range_lower\.\.$range_upper\)/;
+      $line=~ s/:/{/;
+  }
+  elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\(\s*(.+)\s*\)/){
+    $l_var=$1;
+    $range_upper=$2;
+    $line=~ s/^for/foreach/;
+    $line=~ s/($l_var)/\$$1/;
+    $range_upper="($range_upper - 1)";
+    $range_upper=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+    $line=~ s/in\s+range\(.+\)/\(0\.\.$range_upper\)/;
+    $line=~ s/:/{/;
+  }
+  return $line;
+}
 
+sub double_slash {
+    my ($line) = @_;
+    if ($line=~ /\/\//){
+        @test_len= $line=~ /\/\//g;
+        if (@test_len == 1){
+          $line=~ /\s*(\$?\w+)\s*\/\/\s*(\$?\w+)\s*/;
+          $left_handside=$1;
+          $right_handside=$2;
+          $line=~ s/\s*\$?\w+\s*\/\/\s*\$?\w+/ int\($left_handside \/ $right_handside\)/;
+        }
+        if (@test_len > 1){
+          $line=~ /\s*(\$?\w+)\s*\/\/.*\/\/\s*(\$?\w+)\s*/;
+          $line=~ s/\s*(\$?\w+\s*\/\/.*\/\/\s*\$?\w+\s*)/ int\($1\)/;
+          $line=~ s/\/\//\//g;
+        }
+    }
+    return $line;
+}
 
 
 $pre_indent='';
+@indent_list=();
 while($line=<>){
   # interpreter
   if ($line=~ /^#!\/.*/){
@@ -177,16 +232,31 @@ while($line=<>){
     print $line;
     next;
   }
-  # different indents
+  #dealing with different indents
   $line=~/^(\s*).+/;
   $curr_indent=$1;
+  push @indent_list, $curr_indent;
+  %count=();
+  @indent_list=grep { ++$count{ $_ } < 2 } @indent_list;
   $line=~ s/^$curr_indent//;
   if ($curr_indent!~ /^$pre_indent/){
-      print "$curr_indent"."}\n";
+      for ($i=0;$i<=$#indent_list;$i++){
+        if ($indent_list[$i] eq $curr_indent){
+            $start_index=$i;
+        }
+        if ($indent_list[$i] eq $pre_indent){
+            $end_index=$i;
+        }
+      }
+      for ($j=$end_index-1;$j>=$start_index;$j--){
+          print "$indent_list[$j]"."}\n";
+      }
   }
+
 
   $line = common_while($line);
   $line = common_if($line);
+  $line = range_loop($line);
   $line = single_while($line);
   $line = single_if($line);
   $line = standard_output($line);
@@ -196,9 +266,19 @@ while($line=<>){
   $line = var_op($line);
   $line = change_breaknext($line);
   $line = all_print($line);
+  $line = double_slash($line);
   print "$curr_indent"."$line";
   $pre_indent=$curr_indent;
 }
+
 if ($curr_indent ne '') {
-  print "}\n";
+  $start_index=0;
+  for ($i=0;$i<=$#indent_list;$i++){
+    if ($indent_list[$i] eq $pre_indent){
+        $end_index=$i;
+    }
+  }
+  for ($j=$end_index-1;$j>=$start_index;$j--){
+      print "$indent_list[$j]"."}\n";
+  }
 }
