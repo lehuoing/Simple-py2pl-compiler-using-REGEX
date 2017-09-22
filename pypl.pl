@@ -11,9 +11,13 @@ sub new_line {
 sub all_print {
   my ($line) = @_;
   # print strings
-  if ($line=~ /^print\(\".*\"\)/){
-    $line=~ s/print\(/print /;
+  if ($line=~ /^print\s*\(\s*\".*\"\s*\)/){
+    $line=~ s/print\s*\(/print /;
     $line=~ s/\"\)/\\n\";/;
+  }
+  elsif ($line=~ /^print\s*\(\s*\'.*\'\s*\)/){
+    $line=~ s/print\s*\(/print /;
+    $line=~ s/\'\)/\', "\\n";/;
   }
   # print variables
   elsif ($line=~ /^print\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)/){
@@ -28,6 +32,11 @@ sub all_print {
   }
   elsif ($line=~ /^print\(\)/){
     $line="print \"\\n\";\n";
+  }
+  elsif ($line=~ /^print\((.*),\s*end\s*=\s*''\s*\)/){
+      $nd_print=$1;
+      $nd_print=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+      $line="print $nd_print;\n";
   }
   else {
     if ($line=~ /^print\(.*\)/){
@@ -60,11 +69,23 @@ sub var_op {
   return $line;
 }
 
+sub give_string {
+    #give string as value to a variable
+    my ($line) = @_;
+    if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*[\"\'].*[\"\']/){
+        my $variable=$1;
+        $line=~ s/($variable)/\$$1/;
+        $line=~ s/\n/;\n/;
+    }
+
+    return $line;
+}
+
 
 sub single_while {
   my ($line) = @_;
   # single line while loop
-  if ($line=~ /^while (.+)\:\s(.+)/){
+  if ($line=~ /^while (.+)\:\s*(.+)/){
       $need_print="";
       $condition=$1;
       $imple=$2;
@@ -77,6 +98,7 @@ sub single_while {
         $e = new_line($e);
         $e = num_op($e);
         $e = var_op($e);
+        $e = give_string($e);
         $e = all_print($e);
         $need_print="$need_print"."\t$e";
       }
@@ -89,7 +111,7 @@ sub single_while {
 sub single_if {
   my ($line) = @_;
   # single line if condition
-  if ($line=~ /^if (.+)\:\s(.+)/){
+  if ($line=~ /^if (.+)\:\s*(.+)/){
       $need_print="";
       $condition=$1;
       $imple=$2;
@@ -102,6 +124,7 @@ sub single_if {
         $e = new_line($e);
         $e = num_op($e);
         $e = var_op($e);
+        $e = give_string($e);
         $e = all_print($e);
         $need_print="$need_print"."\t$e";
       }
@@ -141,7 +164,7 @@ sub common_if {
 
 sub standard_output {
   my ($line) = @_;
-  if ($line=~ /^sys.stdout.write\((.+)\)/) {
+  if ($line=~ /^sys.stdout.write\s*\((.+)\)/) {
     $line="print $1;\n";
   }
   return $line;
@@ -149,7 +172,7 @@ sub standard_output {
 
 sub standard_readline {
   my ($line) = @_;
-  if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*int\(sys\.stdin\.readline\(\)\)/){
+  if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*int\s*\(\s*sys\.stdin\.readline\(\)\s*\)/){
       my $variable = $1;
       $line="\$$variable = <STDIN>;\n";
   }
@@ -223,6 +246,50 @@ sub double_slash {
     return $line;
 }
 
+sub list_initialize {
+    my ($line) = @_;
+    if ($line=~ /^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\[\]/){
+        $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\@$1/;
+        $line=~ s/\[\]/\(\)/;
+        $line=~ s/\n/;\n/;
+    }
+    return $line;
+}
+
+sub forloop_withstdin {
+    my ($line) = @_;
+    if ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+sys\.stdin\s*:/){
+        my $variable = $1;
+        $line=~ s/($variable)/\$$1/;
+        $line=~ s/^for/foreach/;
+        $line=~ s/in\s+sys\.stdin/\(<STDIN>\)/;
+        $line=~ s/:/{/;
+    }
+    return $line;
+}
+
+sub list_append {
+    my ($line) = @_;
+    if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\.append\((.*)\)/){
+      my $list_name=$1;
+      my $var_name=$2;
+      $var_name=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+      $line="push \@$list_name, $var_name;\n";
+    }
+
+    return $line;
+}
+
+sub change_len {
+    my ($line) = @_;
+    if ($line=~ /\$len\(\s*\$(.+?)\)/) {
+        $line=~ s/\$len\(\s*\$(.+?)\)/\@$1/g;
+    }
+    return $line;
+}
+
+
+
 
 $pre_indent='';
 @indent_list=();
@@ -261,10 +328,11 @@ while($line=<>){
       }
   }
 
-
+  $line = list_initialize($line);
   $line = common_while($line);
   $line = common_if($line);
   $line = range_loop($line);
+  $line = forloop_withstdin($line);
   $line = single_while($line);
   $line = single_if($line);
   $line = standard_output($line);
@@ -272,9 +340,12 @@ while($line=<>){
   $line = new_line($line);
   $line = num_op($line);
   $line = var_op($line);
+  $line = give_string($line);
+  $line = list_append($line);
   $line = change_breaknext($line);
   $line = all_print($line);
   $line = double_slash($line);
+  $line = change_len($line);
   print "$curr_indent"."$line";
   $pre_indent=$curr_indent;
 }

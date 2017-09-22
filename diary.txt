@@ -1,4 +1,5 @@
-15/09/17	14:00  16:00 a good start: finishing the print, variables, newline, constants, and operators.
+15/09/17  14:00  16:00 a good start: finishing the print, variables, newline, constants, and operators.
 18/09/17  00:30  02:00 fix some bugs and finish the subset1(operators among variables).
 21/09/17  19:00  21:00 modify previous code with using functions and finish the subset2.
 22/09/17  23:00  02:00 struggle with subset3, finish half.
+23/09/17  15:00  19:00 finish subset3 and half of subset4 && polish the code && fix some bugs.
