@@ -29,6 +29,13 @@ sub all_print {
   elsif ($line=~ /^print\(\)/){
     $line="print \"\\n\";\n";
   }
+  else {
+    if ($line=~ /^print\(.*\)/){
+        $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+        $line=~ s/\$print\(/print /;
+        $line=~ s/\)/, \"\\n\";/;
+    }
+  }
   return $line;
 }
 
@@ -61,7 +68,7 @@ sub single_while {
       $need_print="";
       $condition=$1;
       $imple=$2;
-      $condition=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/;
+      $condition=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
       $condition="while ($condition) {\n";
       $need_print="$need_print"."$condition";
       @imple_list=split(/;/,$imple);
@@ -86,7 +93,7 @@ sub single_if {
       $need_print="";
       $condition=$1;
       $imple=$2;
-      $condition=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/;
+      $condition=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
       $condition="if ($condition) {\n";
       $need_print="$need_print"."$condition";
       @imple_list=split(/;/,$imple);
@@ -228,6 +235,7 @@ while($line=<>){
   if ($line=~ /^import/){
     $line="\n";
   }
+  # remove comments and blank lines
   if ($line =~ /^\s*(#|$)/){
     print $line;
     next;
