@@ -20,28 +20,35 @@ sub all_print {
     $line=~ s/\'\)/\', "\\n";/;
   }
   # print variables
-  elsif ($line=~ /^print\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)/){
-    $line=~ s/print\(/print \"\$/;
+  elsif ($line=~ /^print\s*\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)/){
+    $line=~ s/print\s*\(/print \"\$/;
     $line=~ s/\)/\\n\";/;
   }
   # print operators among variables
-  elsif ($line=~ /^print\(\s*(?:[a-zA-Z_][a-zA-Z0-9_]*)(?:\s*(?:[\+\-\*\/%]|(?:\/\/)|(?:\*\*))\s*(?:[a-zA-Z_][a-zA-Z0-9_]*))+\s*\)/){
+  elsif ($line=~ /^print\s*\(\s*(?:[a-zA-Z_][a-zA-Z0-9_]*)(?:\s*(?:[\+\-\*\/%]|(?:\/\/)|(?:\*\*))\s*(?:[a-zA-Z_][a-zA-Z0-9_]*))+\s*\)/){
     $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
-    $line=~ s/\$print\(/print /;
+    $line=~ s/\$print\s*\(/print /;
     $line=~ s/\)/, \"\\n\";/;
   }
-  elsif ($line=~ /^print\(\)/){
+  elsif ($line=~ /^print\s*\(\s*\"(.*%.*)\"\s*%(.*)\)/) {
+    my $need_print=$1;
+    my $variable = $2;
+    $variable=~ s/\s+//g;
+    $need_print=~ s/%\w+/\$$variable/;
+    $line="print \"$need_print\\n\";\n";
+  }
+  elsif ($line=~ /^print\s*\(\s*\)/){
     $line="print \"\\n\";\n";
   }
-  elsif ($line=~ /^print\((.*),\s*end\s*=\s*''\s*\)/){
+  elsif ($line=~ /^print\s*\((.*),\s*end\s*=\s*''\s*\)/){
       $nd_print=$1;
       $nd_print=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
       $line="print $nd_print;\n";
   }
   else {
-    if ($line=~ /^print\(.*\)/){
+    if ($line=~ /^print\s*\(.*\)/){
         $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
-        $line=~ s/\$print\(/print /;
+        $line=~ s/\$print\s*\(/print /;
         $line=~ s/\)/, \"\\n\";/;
     }
   }
@@ -193,35 +200,36 @@ sub change_breaknext {
 sub range_loop {
   my ($line) = @_;
   # for range loop
-  if ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\(\s*(\d+)\s*,\s*(\d+)\s*\)/){
+  if ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/){
       $l_var=$1;
       $range_lower=$2;
       $range_upper=$3;
       $curr_upper=$range_upper-1;
       $line=~ s/^for/foreach/;
       $line=~ s/($l_var)/\$$1/;
-      $line=~ s/in\s+range\(.+\)/\($range_lower\.\.$curr_upper\)/;
+      $line=~ s/in\s+range\s*\(.+\)/\($range_lower\.\.$curr_upper\)/;
       $line=~ s/:/{/;
   }
-  elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\(\s*(.+)\s*,\s*(.+)\s*\)/){
+  elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\s*\(\s*(.+)\s*,\s*(.+)\s*\)/){
       $l_var=$1;
       $range_lower=$2;
       $range_upper=$3;
       $line=~ s/^for/foreach/;
       $line=~ s/($l_var)/\$$1/;
       $range_upper="($range_upper - 1)";
+      $range_lower=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
       $range_upper=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
-      $line=~ s/in\s+range\(.+\)/\($range_lower\.\.$range_upper\)/;
+      $line=~ s/in\s+range\s*\(.+\)/\($range_lower\.\.$range_upper\)/;
       $line=~ s/:/{/;
   }
-  elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\(\s*(.+)\s*\)/){
+  elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+range\s*\(\s*(.+)\s*\)/){
     $l_var=$1;
     $range_upper=$2;
     $line=~ s/^for/foreach/;
     $line=~ s/($l_var)/\$$1/;
     $range_upper="($range_upper - 1)";
     $range_upper=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
-    $line=~ s/in\s+range\(.+\)/\(0\.\.$range_upper\)/;
+    $line=~ s/in\s+range\s*\(.+\)/\(0\.\.$range_upper\)/;
     $line=~ s/:/{/;
   }
   return $line;
@@ -248,10 +256,17 @@ sub double_slash {
 
 sub list_initialize {
     my ($line) = @_;
-    if ($line=~ /^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\[\]/){
+    if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\[\s*\]/){
+        push @list_list, $1;
         $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\@$1/;
-        $line=~ s/\[\]/\(\)/;
+        $line=~ s/\[\s*\]/\(\)/;
         $line=~ s/\n/;\n/;
+    }
+    elsif ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\[(.*)\]/) {
+        my $variable = $1;
+        push @list_list, $variable;
+        my $right_handside = $2;
+        $line="\@$variable = ($right_handside);\n";
     }
     return $line;
 }
@@ -280,19 +295,76 @@ sub list_append {
     return $line;
 }
 
+sub list_pop {
+    my ($line) = @_;
+    if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\.pop\s*\(\s*\)/) {
+        my $list_name = $1;
+        $line="pop \@$list_name;\n";
+    }
+    elsif ($line=~ /^\$([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\$([a-zA-Z_][a-zA-Z0-9_]*)\.\$pop\s*\(\s*\)/) {
+        my $variable = $1;
+        my $list_name = $2;
+        $line="$variable = pop \@$list_name;\n";
+    }
+    return $line;
+}
+
+
 sub change_len {
     my ($line) = @_;
-    if ($line=~ /\$len\(\s*\$(.+?)\)/) {
+    if ($line=~ /\$len\(\s*\$ARGV\s*\)/) {
+        $line=~ s/\$len\(\s*\$ARGV\s*\)/\@ARGV + 1/g;
+    }
+    elsif ($line=~ /\$len\(\s*\$(.+?)\)/) {
         $line=~ s/\$len\(\s*\$(.+?)\)/\@$1/g;
+    }
+    return $line;
+}
+
+sub standard_readlines {
+    my ($line) = @_;
+    if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*sys\.stdin\.readlines\s*\(\s*\)/) {
+        my $variable = $1;
+        my $part1="while (\$line = <STDIN>) {\n";
+        my $part2="\tpush \@$1, \$line;\n";
+        my $part3="}\n";
+        $line=$part1.$part2.$part3;
+    }
+    return $line;
+}
+
+sub change_argv {
+    my ($line) = @_;
+    if ($line=~ /\bsys\.argv\b/) {
+        $line=~ s/\bsys\.argv\b/ARGV/g;
+    }
+    if ($line=~ /\bARGV\s*(\[\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\])/) {
+        my $variable = $1;
+        $line=~ s/(\b$variable\b)/$1 - 1/;
+    }
+
+    return $line;
+}
+
+sub change_notandor {
+    my ($line) = @_;
+    if ($line=~ /\$not/) {
+      $line=~ s/\$not/!/g;
+    }
+    if ($line=~ /\$and/) {
+      $line=~ s/\$and/&&/g;
+    }
+    if ($line=~ /\$or/) {
+      $line=~ s/\$or/||/g;
     }
     return $line;
 }
 
 
 
-
 $pre_indent='';
 @indent_list=();
+@list_list=();
 while($line=<>){
   # interpreter
   if ($line=~ /^#!\/.*/){
@@ -328,6 +400,7 @@ while($line=<>){
       }
   }
 
+  $line = change_argv($line);
   $line = list_initialize($line);
   $line = common_while($line);
   $line = common_if($line);
@@ -337,15 +410,24 @@ while($line=<>){
   $line = single_if($line);
   $line = standard_output($line);
   $line = standard_readline($line);
+  $line = standard_readlines($line);
   $line = new_line($line);
   $line = num_op($line);
   $line = var_op($line);
   $line = give_string($line);
   $line = list_append($line);
+  $line = list_pop($line);
   $line = change_breaknext($line);
   $line = all_print($line);
   $line = double_slash($line);
+  $line = change_notandor($line);
   $line = change_len($line);
+  #change back list variables
+  foreach $i (@list_list){
+    if ($line=~ /\$$i\b/){
+      $line=~ s/\$$i\b/\@$i/g;
+    }
+  }
   print "$curr_indent"."$line";
   $pre_indent=$curr_indent;
 }
