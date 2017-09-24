@@ -55,21 +55,10 @@ sub all_print {
   return $line;
 }
 
-sub num_op {
-  my ($line) = @_;
-  # numeric constants and operators
-  if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)(\s*=\s*(?:\d+)(?:\s*(?:[\+\-\*\/%]|(?:\/\/)|(?:\*\*))\s*\d+)*)/){
-    $v_name=$1;
-    $right_side=$2;
-    $line="\$$v_name$right_side;\n";
-  }
-  return $line;
-}
-
 sub var_op {
   my ($line) = @_;
-  # operators among variables
-  if ($line=~ /^[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*(?:[a-zA-Z_][a-zA-Z0-9_]*)(?:\s*(?:[\+\-\*\/%]|(?:\/\/)|(?:\*\*))\s*(?:[a-zA-Z_][a-zA-Z0-9_]*))*/){
+  # operators among variables && numeric constants and operators
+  if ($line=~ /^[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*(?:[a-zA-Z_][a-zA-Z0-9_]*|\d+)(?:\s*(?:[\+\-\*\/%]|(?:\/\/)|(?:\*\*))\s*(?:[a-zA-Z_][a-zA-Z0-9_]*|\d+))*/){
     $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
     $line=~ s/\n/;\n/;
   }
@@ -103,7 +92,6 @@ sub single_while {
       foreach $e(@imple_list){
         $e=~ s/^\s*//;
         $e = new_line($e);
-        $e = num_op($e);
         $e = var_op($e);
         $e = give_string($e);
         $e = all_print($e);
@@ -129,7 +117,6 @@ sub single_if {
       foreach $e(@imple_list){
         $e=~ s/^\s*//;
         $e = new_line($e);
-        $e = num_op($e);
         $e = var_op($e);
         $e = give_string($e);
         $e = all_print($e);
@@ -235,6 +222,20 @@ sub range_loop {
   return $line;
 }
 
+sub for_loopwithoutrange {
+    my ($line) = @_;
+    if ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+ARGV\s*\[\s*1:\s*\]\s*:/){
+        my $variable = $1;
+        $line = "foreach \$$variable (\@ARGV){\n";
+    }
+    elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:/){
+        my $variable = $1;
+        my $variable2 = $2;
+        $line = "foreach \$$variable (\@$variable2){\n";
+    }
+    return $line;
+}
+
 sub double_slash {
     my ($line) = @_;
     if ($line=~ /\/\//){
@@ -246,7 +247,6 @@ sub double_slash {
           $line=~ s/\s*\$?\w+\s*\/\/\s*\$?\w+/ int\($left_handside \/ $right_handside\)/;
         }
         if (@test_len > 1){
-          $line=~ /\s*(\$?\w+)\s*\/\/.*\/\/\s*(\$?\w+)\s*/;
           $line=~ s/\s*(\$?\w+\s*\/\/.*\/\/\s*\$?\w+\s*)/ int\($1\)/;
           $line=~ s/\/\//\//g;
         }
@@ -406,13 +406,13 @@ while($line=<>){
   $line = common_if($line);
   $line = range_loop($line);
   $line = forloop_withstdin($line);
+  $line = for_loopwithoutrange($line);
   $line = single_while($line);
   $line = single_if($line);
   $line = standard_output($line);
   $line = standard_readline($line);
   $line = standard_readlines($line);
   $line = new_line($line);
-  $line = num_op($line);
   $line = var_op($line);
   $line = give_string($line);
   $line = list_append($line);
@@ -424,7 +424,7 @@ while($line=<>){
   $line = change_len($line);
   #change back list variables
   foreach $i (@list_list){
-    if ($line=~ /\$$i\b/){
+    if ($line=~ /\$$i\b[^\[]/){
       $line=~ s/\$$i\b/\@$i/g;
     }
   }
