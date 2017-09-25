@@ -392,6 +392,7 @@ sub change_regex {
         my $sb1 = $2;
         my $sb2 = $3;
         $line = "\@$1 = split /\\$sb2/, \$$sb1;\n";
+        push @list_list, $variable1;
     }
     elsif ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\.split\(\)/) {
         my $variable1 = $1;
