@@ -366,14 +366,14 @@ sub change_argv {
 
 sub change_notandor {
     my ($line) = @_;
-    if ($line=~ /\$not/) {
-      $line=~ s/\$not/!/g;
+    if ($line=~ /\$not\b/) {
+      $line=~ s/\$not\b/!/g;
     }
-    if ($line=~ /\$and/) {
-      $line=~ s/\$and/&&/g;
+    if ($line=~ /\$and\b/) {
+      $line=~ s/\$and\b/&&/g;
     }
-    if ($line=~ /\$or/) {
-      $line=~ s/\$or/||/g;
+    if ($line=~ /\$or\b/) {
+      $line=~ s/\$or\b/||/g;
     }
     return $line;
 }
