@@ -45,6 +45,15 @@ sub all_print {
       $nd_print=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
       $line="print $nd_print;\n";
   }
+  elsif ($line=~ /^print\s*\(\s*\'(.*)\'\.\s*join\s*\(\s*ARGV\s*\[\s*1:\s*\]\s*\)\)/){
+      $need_join=$1;
+      $line="print join(\"$need_join\", \@ARGV), \"\\n\";\n";
+  }
+  elsif ($line=~ /^print\s*\(\s*\'(.*)\'\.\s*join\s*\(\s*(.*)\s*\)\)/){
+      $need_join=$1;
+      $need_joinlist=$2;
+      $line="print join(\"$need_join\", \@$need_joinlist), \"\\n\";\n";
+  }
   else {
     if ($line=~ /^print\s*\(.*\)/){
         $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
@@ -233,6 +242,11 @@ sub for_loopwithoutrange {
         my $variable2 = $2;
         $line = "foreach \$$variable (\@$variable2){\n";
     }
+    elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+sorted\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\.keys\(\)\s*\)\s*:/) {
+        my $variable = $1;
+        my $v_dict = $2;
+        $line="foreach \$$variable (sort keys \%$v_dict) {\n";
+    }
     return $line;
 }
 
@@ -279,6 +293,10 @@ sub forloop_withstdin {
         $line=~ s/^for/foreach/;
         $line=~ s/in\s+sys\.stdin/\(<STDIN>\)/;
         $line=~ s/:/{/;
+    }
+    elsif ($line=~ /^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+fileinput\.input\s*\(\s*\)\s*:/){
+        my $variable = $1;
+        $line="while (\$$variable = <>) {\n";
     }
     return $line;
 }
@@ -360,6 +378,30 @@ sub change_notandor {
     return $line;
 }
 
+sub change_regex {
+    my ($line) = @_;
+    if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*re\.sub\s*\(\s*r\'(.*)\'\s*,\s*\'(.*)\'\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\)/) {
+        my $variable1 = $1;
+        my $sb1 = $2;
+        my $sb2 = $3;
+        my $variable2 = $4;
+        $line = "\$$variable1 =~ s/$sb1/$sb2/g;\n";
+    }
+    if ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\.split\(\'(.+)\'\)/){
+        my $variable1 = $1;
+        my $sb1 = $2;
+        my $sb2 = $3;
+        $line = "\@$1 = split /\\$sb2/, \$$sb1;\n";
+    }
+    elsif ($line=~ /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\.split\(\)/) {
+        my $variable1 = $1;
+        my $sb1 = $2;
+        $line = "\@$1 = split /\\s+/, \$$sb1;\n";
+        push @list_list, $variable1;
+    }
+    return $line;
+}
+
 
 
 $pre_indent='';
@@ -401,6 +443,7 @@ while($line=<>){
   }
 
   $line = change_argv($line);
+  $line = change_regex($line);
   $line = list_initialize($line);
   $line = common_while($line);
   $line = common_if($line);
