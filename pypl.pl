@@ -71,6 +71,10 @@ sub var_op {
     $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
     $line=~ s/\n/;\n/;
   }
+  elsif ($line=~ /^[a-zA-Z_][a-zA-Z0-9_]*\s*\[.+\]\s*=.+/){
+    $line=~ s/([a-zA-Z_][a-zA-Z0-9_]*)/\$$1/g;
+    $line=~ s/\n/;\n/;
+  }
   return $line;
 }
 
