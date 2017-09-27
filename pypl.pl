@@ -326,7 +326,7 @@ sub list_pop {
     elsif ($line=~ /^\$([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\$([a-zA-Z_][a-zA-Z0-9_]*)\.\$pop\s*\(\s*\)/) {
         my $variable = $1;
         my $list_name = $2;
-        $line="$variable = pop \@$list_name;\n";
+        $line="\$$variable = pop \@$list_name;\n";
     }
     return $line;
 }
