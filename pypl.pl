@@ -358,7 +358,12 @@ sub change_argv {
     }
     if ($line=~ /\bARGV\s*(\[\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\])/) {
         my $variable = $1;
-        $line=~ s/(\b$variable\b)/$1 - 1/;
+        $line=~ s/($variable\b)/$1 - 1/;
+    }
+    elsif ($line=~ /\bARGV\s*\[\s*(\d+)\s*\]/) {
+        my $arg_number=$1;
+        $arg_number=$arg_number-1;
+        $line=~ s/\bARGV\s*\[\s*(\d+)\s*\]/ARGV\[$arg_number\]/;
     }
 
     return $line;
@@ -374,6 +379,10 @@ sub change_notandor {
     }
     if ($line=~ /\$or\b/) {
       $line=~ s/\$or\b/||/g;
+    }
+    #add change back int()
+    if ($line=~ /\$int\b/) {
+      $line=~ s/\$int\b/int/g;
     }
     return $line;
 }
